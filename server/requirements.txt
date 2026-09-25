@@ -1,0 +1,10 @@
+
+fastapi
+uvicorn[standard]
+pydantic
+llama-cpp-python
+aiohttp
+huggingface_hub
+python-dotenv
+psutil
+nvidia-ml-py

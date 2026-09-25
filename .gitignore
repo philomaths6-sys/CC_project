@@ -1,0 +1,33 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Large model weights (exceeds GitHub 100MB limit)
+*.gguf
+*.bin
+*.pt
+*.safetensors
+models/*.gguf
+!models/.gitkeep
+
+# Environment and sensitive files
+.env
+*.env
+
+# Runtime logs
+server.log
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Operating system files
+.DS_Store
+Thumbs.db
