@@ -34,7 +34,7 @@ N_THREADS = int(os.environ.get("N_THREADS", os.cpu_count() or 8))
 N_CTX = 4096
 
 
-print(f"Loading modle from {MODEL_PATH} | GPU={USE_GPU} | threads={N_THREADS}")
+print(f"Loading model from {MODEL_PATH} | GPU={USE_GPU} | threads={N_THREADS}")
 
 llm = Llama(
     model_path=MODEL_PATH,

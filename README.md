@@ -6,7 +6,7 @@ A comprehensive, empirical Cloud Computing benchmark evaluating:
 
 All experiments follow a strict **Client–Server decoupled architecture**:
 - **Server Role (Google Colab)**: Pure inference host. Runs model execution and returns only the generated completion text and raw server-side timing telemetry (`ttft`, `total_latency`, `tokens_generated`, `prompt_tokens`).
-- **Client Role (Local Laptop)**: Evaluation harness. Measures end-to-end wall-clock latency, mathematically isolates WAN network delay ($T_{\text{net}} = T_{\text{client}} - T_{\text{server}}$), calculates GPU token throughput ($\text{tokens} / T_{\text{decode}}$), evaluates text quality (ROUGE-1, ROUGE-L, Factual Keyword Hit Rate), and renders publication-grade charts from authentic empirical data.
+- **Client Role (Local Laptop)**: Evaluation harness. Measures end-to-end wall-clock latency, mathematically isolates WAN network delay (`T_net = T_client - T_server`), calculates GPU token throughput (`tokens / T_decode`), evaluates text quality (ROUGE-1, ROUGE-L, Factual Keyword Hit Rate), and renders publication-grade charts from authentic empirical data.
 
 ---
 
@@ -47,23 +47,23 @@ When deploying Large Language Models (LLMs) in cloud production environments, ar
 flowchart TD
     subgraph Client["Local Evaluation Client (Laptop / On-Premises)"]
         direction TB
-        A[Benchmark Harness: quant_bench.py] -->|1. Switch Model Request| B(Remote Model Manager)
-        A -->|2. Streamed Prompt Invocations| C(Streaming Request Client)
-        C -->|Measure TTFT & Response Arrival| D[Latency Isolator: T_net = T_client - T_server]
-        A -->|3. Evaluate Generated Text| E[Scoring Engine: metrics.py]
-        E --> F[ROUGE-1, ROUGE-L, Keyword Hit Rate, Composite Score]
-        A -->|4. Save Empirical Records| G[CSV Logs in results/]
-        G --> H[Plotting Suite: plot_deep_dive.py]
+        A["Benchmark Harness (quant_bench.py)"] -->|1. Switch Model Request| B["Remote Model Manager"]
+        A -->|2. Streamed Prompt Invocations| C["Streaming Request Client"]
+        C -->|Measure TTFT & Response Arrival| D["Latency Isolator: T_net = T_client - T_server"]
+        A -->|3. Evaluate Generated Text| E["Scoring Engine (metrics.py)"]
+        E --> F["ROUGE-1, ROUGE-L, Keyword Hit Rate, Composite Score"]
+        A -->|4. Save Empirical Records| G["CSV Logs in results/"]
+        G --> H["Plotting Suite (plot_deep_dive.py)"]
     end
 
     subgraph CloudServer["Google Colab Cloud GPU (NVIDIA Tesla T4 16GB)"]
         direction TB
-        T1["Public Ngrok Tunnel (HTTPS Gateway)"] --> T2[FastAPI Server :8000 (quant_server.py)]
+        T1["Public Ngrok Tunnel (HTTPS Gateway)"] --> T2["FastAPI Server :8000 (quant_server.py)"]
         T2 -->|Dynamic Hot-Swap| T3["llama-cpp-python (CUDA Engine)"]
         T3 -->|Model 1: 4.5 bpw| M1["Qwen2.5-1.5B-Q4_K_M (1.04 GB)"]
         T3 -->|Model 2: 8.5 bpw| M2["Qwen2.5-1.5B-Q8_0 (1.76 GB)"]
         T3 -->|Model 3: 16.0 bpw| M3["Qwen2.5-1.5B-fp16 (3.32 GB)"]
-        T2 -->|NVML Realtime Telemetry| T4[VRAM & GPU Utilization Tracker]
+        T2 -->|NVML Realtime Telemetry| T4["VRAM & GPU Utilization Tracker"]
     end
 
     C -.->|Public Internet WAN Transit ~294ms| T1
@@ -151,14 +151,14 @@ Evaluated on an **NVIDIA Tesla T4 GPU (16 GB VRAM)** via Ngrok HTTPS tunnel acro
 | **`fp16`** | 16.0 bpw | 3.32 GB | 3.78 GB | 32.78 ms | 59.90 tok/s | 45.07% | 293.85 ms |
 
 #### Key Analytical Insights
-1. **Network Decoupling Invariance**: Across all 30 benchmark queries, the measured isolated network delay remained rock-solid at **$293.5\text{ ms} - 293.9\text{ ms}$** ($\Delta < 0.4\text{ ms}$, $\sigma < 5.7\text{ ms}$), empirically validating that WAN transit overhead is strictly decoupled from server-side model precision.
+1. **Network Decoupling Invariance**: Across all 30 benchmark queries, the measured isolated network delay remained rock-solid at **293.5 ms – 293.9 ms** (Δ < 0.4 ms, σ < 5.7 ms), empirically validating that WAN transit overhead is strictly decoupled from server-side model precision.
 2. **GPU Throughput Scaling**: Generation throughput scales inversely with bit precision:
    - `Q4_K_M` achieves **127.6 tok/s** (+32.6% over Q8, +113.0% over fp16).
    - `Q8_0` delivers **96.2 tok/s** (+60.6% over fp16).
    - `fp16` achieves **59.9 tok/s**.
-3. **The Instruction Following Cliff**: While factual question answering and JSON extraction exhibit high accuracy parity across all tiers ($87\% - 97\%$), complex instruction following (`instruct_01`: strict JSON schema constraint) exhibits an **Instruction Cliff**:
-   - `Q4_K_M` collapsed to **$11.26\%$** quality score due to syntax formatting failure.
-   - `Q8_0` recovered to **$21.45\%$** ($+90.5\%$ relative recovery), matching `fp16` ($21.53\%$).
+3. **The Instruction Following Cliff**: While factual question answering and JSON extraction exhibit high accuracy parity across all tiers (87% – 97%), complex instruction following (`instruct_01`: strict JSON schema constraint) exhibits an **Instruction Cliff**:
+   - `Q4_K_M` collapsed to **11.26%** quality score due to syntax formatting failure.
+   - `Q8_0` recovered to **21.45%** (+90.5% relative recovery), matching `fp16` (21.53%).
 
 ---
 
@@ -166,12 +166,12 @@ Evaluated on an **NVIDIA Tesla T4 GPU (16 GB VRAM)** via Ngrok HTTPS tunnel acro
 
 To rigorously determine the optimal quantization level, we compute the **Marginal Efficiency of Transition**:
 
-$$\text{Marginal Return} = \frac{\Delta \text{Quality}}{\Delta \text{VRAM}}$$
+$$\text{Marginal Return} = \frac{\Delta\text{Quality}}{\Delta\text{VRAM}}$$
 
-| Transition | $\Delta \text{VRAM}$ | $\Delta \text{Throughput}$ | Quality Impact | Efficiency Verdict |
+| Transition | Δ VRAM | Δ Throughput | Quality Impact | Efficiency Verdict |
 | :--- | :--- | :--- | :--- | :--- |
-| **$\text{Q4\_K\_M} \to \text{Q8\_0}$** | $+0.63\text{ GB } (+35\%)$ | $-31.4\text{ tok/s } (-25\%)$ | **$+90.5\%$ recovery on complex instructions**; overall score par | **★ Optimal Knee Point** |
-| **$\text{Q8\_0} \to \text{fp16}$** | $+1.35\text{ GB } (+55\%)$ | $-36.3\text{ tok/s } (-38\%)$ | **$+0.0\%$ improvement** (45.37% vs 45.07%) | **Negative Marginal Return** |
+| **`Q4_K_M` → `Q8_0`** | +0.63 GB (+35%) | -31.4 tok/s (-25%) | **+90.5% recovery on complex instructions**; overall score par | **★ Optimal Knee Point** |
+| **`Q8_0` → `fp16`** | +1.35 GB (+55%) | -36.3 tok/s (-38%) | **+0.0% improvement** (45.37% vs 45.07%) | **Negative Marginal Return** |
 
 **Empirical Conclusion**: **`Q8_0` is the Knee of the Curve**. Upgrading from `Q8_0` to `fp16` costs +1.35 GB of VRAM (+55%) and degrades generation speed by 37.7% ($96.2 \to 59.9\text{ tok/s}$) with **zero measurable improvement in output fidelity**. Conversely, downgrading to `Q4_K_M` introduces unpredictable degradation on constrained formatting tasks. Therefore, `Q8_0` represents the global Pareto-optimal choice for production cloud deployments.
 
@@ -367,6 +367,14 @@ Returns instantaneous host telemetry from NVML (NVIDIA Management Library) and `
   "vram_total_gb": 15.0
 }
 ```
+
+---
+
+### Baseline Server (`server/local_server.py`)
+Used for Track B (Local CPU vs. Cloud GPU context length benchmarks). Exposes:
+- `GET /health`: Returns `{"status": "ok", "system_info": "...", "gpu": false, "threads": 8}`.
+- `GET /stats`: Returns CPU utilization (`cpu_percent`, `cpu_percent_per_core`), system memory (`ram_percent`, `ram_used_gb`), and optional GPU telemetry if NVML is present.
+- `POST /generate`: Accepts `{"prompt": "...", "max_tokens": 128}`, returning `{"text": "...", "ttft": 0.044, "total_latency": 3.38, "tokens_generated": 128, "prompt_tokens": 128}`.
 
 ---
 
