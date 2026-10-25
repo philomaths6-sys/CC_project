@@ -1,0 +1,4 @@
+quant_level,track,bits_per_weight,disk_size_gb,vram_gb,ram_gb,mean_client_latency_s,mean_ttft_ms,mean_network_delay_ms,mean_throughput_tok_s,mean_rouge_1,mean_rouge_l,mean_keyword_hit,mean_composite_quality
+Q4_K_M,Track A (Person 1),4.5,1.04,1.8,1.4,1.05,44.92,293.92,127.61,0.4346,0.3879,0.683,46.1
+Q8_0,Track B (Person 2),8.5,1.76,2.43,1.51,1.261,23.85,293.87,96.22,0.4184,0.373,0.708,45.37
+fp16,Track C (Person 3),16.0,3.32,3.78,1.51,1.844,32.78,293.55,59.9,0.4191,0.3667,0.708,45.07

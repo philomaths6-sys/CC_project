@@ -1,0 +1,294 @@
+quant_level,task_id,category,client_latency_s,server_ttft_ms,network_delay_ms,throughput_tok_s,rouge_1,rouge_l,keyword_hit_rate,composite_quality,output,reference
+Q4_K_M,qa_01,factual_qa,0.82,275.25,292.28,83.21,0.9655,0.9655,1.0,97.24,"The capital of Australia is Canberra, and it was chosen as the capital in 1908.",The capital of Australia is Canberra. It was chosen as the capital in 1908.
+Q4_K_M,qa_02,factual_qa,1.436,18.88,289.88,133.03,0.2764,0.2276,1.0,39.67,"The Lorentz factor quantifies the time dilation and the length contraction in special relativity. It is a fundamental concept in the theory of special relativity, which describes the behavior of objects and light in the absence of gravitational fields.
+
+The Lorentz factor is given by the formula:
+
+\[
+\gamma = \frac{1}{\sqrt{1 - \frac{v^2}{c^2}}}
+\]
+
+where:
+- \( \gamma \) is the Lorentz factor,
+- \( v \) is the velocity of an object,
+- \( c \) is the speed of light in a vacuum.
+
+The Lorentz factor is a dimensionless quantity, meaning it does not have any units. It is used","The Lorentz factor quantifies time dilation, length contraction, and relativistic mass increase for an object moving at relativistic speed. It is denoted by the Greek letter gamma."
+Q4_K_M,math_01,reasoning,1.456,21.72,302.37,132.51,0.314,0.1818,0.75,33.51,"To solve this problem, we need to determine how many additional machines are required to maintain service when incoming traffic doubles.
+
+1. **Current Capacity:**
+   - Each machine can process 15 requests per second.
+   - There are 12 machines in total.
+
+   Therefore, the total current capacity is:
+   \[
+   12 \text{ machines} \times 15 \text{ requests per second per machine} = 180 \text{ requests per second}
+   \]
+
+2. **Doubling the Traffic:**
+   - Incoming traffic doubles, so the new capacity required is:
+   \[
+   2 \times 180 \text{ requests per second} = 360","Each machine handles 15 req/s. Total current capacity = 12 * 15 = 180 req/s. Doubled traffic = 360 req/s. Total machines needed = 360 / 15 = 24 machines. Since there are already 12 machines, 24 - 12 = 12 additional machines must be added."
+Q4_K_M,logic_01,reasoning,0.557,19.46,290.23,133.49,0.4918,0.3934,0.333,41.09,"Yes, we can logically conclude that some roses fade quickly. Since all roses are flowers and some flowers fade quickly, it follows that some roses must also fade quickly.","No, we cannot conclude that some roses fade quickly. The premise only states that some flowers fade quickly, and those flowers may not include roses, committing the fallacy of the undistributed middle."
+Q4_K_M,code_01,coding,1.444,18.45,289.9,132.07,0.1651,0.1284,0.667,24.71,"Certainly! Below is a clean Python function named `is_palindrome(s: str) -> bool` that checks if a string is a palindrome, ignoring case and non-alphanumeric characters:
+
+```python
+import re
+
+def is_palindrome(s: str) -> bool:
+    """"""
+    Checks if a string is a palindrome, ignoring case and non-alphanumeric characters.
+    
+    Args:
+    s (str): The string to check.
+    
+    Returns:
+    bool: True if the string is a palindrome, False otherwise.
+    """"""
+    # Remove non-alphanumeric characters and convert to lowercase
+    cleaned_s = re.sub(r'[^a-zA-Z0-9]', '', s).lower()
+    
+    # Check if the cleaned string is equal","def is_palindrome(s: str) -> bool:
+    clean = [c.lower() for c in s if c.isalnum()]
+    return clean == clean[::-1]"
+Q4_K_M,code_02,coding,1.446,18.02,292.22,132.04,0.2628,0.1898,1.0,37.37,"To compute the n-th Fibonacci number using recursion and memoization, we can use a dictionary to store the results of previously computed Fibonacci numbers. This approach helps in reducing the number of recursive calls and speeds up the computation by avoiding redundant calculations.
+
+Here's the Python function `fibonacci_memo`:
+
+```python
+def fibonacci_memo(n: int, memo: dict = None) -> int:
+    """"""
+    Compute the n-th Fibonacci number using recursion and memoization.
+    
+    Parameters:
+    n (int): The position in the Fibonacci sequence.
+    memo (dict, optional): A dictionary to store previously computed Fibonacci numbers.
+    
+    Returns:
+    int: The n-th Fibonacci number.
+    """"""
+    if memo is None:
+        memo","def fibonacci_memo(n: int, memo=None):
+    if memo is None:
+        memo = {}
+    if n in memo:
+        return memo[n]
+    if n <= 1:
+        return n
+    memo[n] = fibonacci_memo(n-1, memo) + fibonacci_memo(n-2, memo)
+    return memo[n]"
+Q4_K_M,summ_01,summarization,0.459,16.99,300.51,133.89,0.2963,0.2963,0.333,30.37,"Cloud computing involves pooling computing resources, offering elasticity in service delivery, and supporting various deployment models.","Cloud computing is a model for enabling ubiquitous, on-demand network access to a shared pool of configurable computing resources with rapid elasticity and minimal management effort. It is provisioned across private, public, community, or hybrid deployment models."
+Q4_K_M,summ_02,summarization,0.727,16.79,292.28,131.69,0.4706,0.4471,0.75,51.47,"Amdahl's Law states that the speedup of a parallel algorithm is limited by the fraction of the algorithm that can be parallelized. This implies that as more tasks are added to a parallel system, the speedup will increase, but only up to a certain point.","Amdahl's law states that the overall speedup of a program from parallel processing is bounded by the fraction of the algorithm that is strictly sequential. Even with infinite processors, maximum acceleration is fundamentally limited by the unparallelizable portion."
+Q4_K_M,extract_01,extraction,0.704,26.81,291.24,132.18,0.9286,0.9286,1.0,94.29,"```json
+{
+  ""company"": ""Google"",
+  ""founded"": ""1998"",
+  ""founders"": [""Larry Page"", ""Sergey Brin""],
+  ""headquarters"": ""Mountain View, California""
+}
+```","{
+  ""company"": ""Google"",
+  ""founded"": ""September 1998"",
+  ""founders"": [""Larry Page"", ""Sergey Brin""],
+  ""headquarters"": ""Mountain View, California""
+}"
+Q4_K_M,instruct_01,instruction_following,1.452,16.83,298.29,131.97,0.1749,0.1202,0.0,11.26,"1. **Instruction Set Architecture (ISA):**
+   - **CPU:** CPUs have a fixed ISA, meaning they execute instructions in a specific order. This allows for predictable performance and easy optimization for specific tasks.
+   - **GPU:** GPUs have a highly optimized ISA designed for parallel processing, allowing for efficient execution of multiple instructions simultaneously.
+
+2. **Parallel Processing Capabilities:**
+   - **CPU:** CPUs are designed for sequential processing, meaning they can execute instructions one at a time. This makes them well-suited for tasks that require a high degree of sequential processing.
+   - **GPU:** GPUs are designed for parallel processing, allowing them to execute multiple instructions simultaneously. This makes them highly efficient for tasks that can be broken down into many independent","1. **Core Architecture**: CPUs have few powerful latency-optimized cores, while GPUs have thousands of smaller throughput-optimized arithmetic units.
+2. **Memory Bandwidth**: GPUs use high-bandwidth memory (GDDR/HBM) reaching >900 GB/s, whereas CPUs rely on DDR channels typically capped at <100 GB/s.
+3. **Instruction Execution**: GPUs excel at SIMD/SIMT massive tensor operations, while CPUs excel at branch prediction, complex instruction pipelines, and scalar control flow."
+Q8_0,qa_01,factual_qa,0.577,47.82,290.48,75.34,0.8462,0.8462,1.0,87.69,"The capital of Australia is Canberra, and it was chosen in 1908.",The capital of Australia is Canberra. It was chosen as the capital in 1908.
+Q8_0,qa_02,factual_qa,1.828,20.24,290.4,98.87,0.224,0.192,1.0,36.32,"In special relativity, the Lorentz factor quantifies the time dilation effect. The Lorentz factor is a mathematical expression that relates the time measured in an accelerating frame of reference to the time measured in a stationary frame of reference. It is given by the formula:
+
+\[
+\gamma = \frac{1}{\sqrt{1 - \frac{v^2}{c^2}}}
+\]
+
+where:
+- \( \gamma \) is the Lorentz factor,
+- \( v \) is the velocity of the moving frame relative to the stationary frame,
+- \( c \) is the speed of light in a vacuum.
+
+The Lorentz factor is a crucial concept in special relativity, as it helps to explain","The Lorentz factor quantifies time dilation, length contraction, and relativistic mass increase for an object moving at relativistic speed. It is denoted by the Greek letter gamma."
+Q8_0,math_01,reasoning,1.848,23.97,306.06,98.79,0.3077,0.2308,0.75,35.77,"To solve this problem, we need to determine how many additional machines are required to maintain service when incoming traffic doubles.
+
+1. **Current Capacity:**
+   - Each machine can process 15 requests per second.
+   - There are 12 machines.
+   - Total current capacity = 12 machines * 15 requests/second = 180 requests/second.
+
+2. **Doubling the Traffic:**
+   - Incoming traffic doubles, so the new capacity required = 180 requests/second * 2 = 360 requests/second.
+
+3. **Calculating Additional Machines Needed:**
+   - To find out how many additional machines are needed, we divide the new capacity by the capacity of one","Each machine handles 15 req/s. Total current capacity = 12 * 15 = 180 req/s. Doubled traffic = 360 req/s. Total machines needed = 360 / 15 = 24 machines. Since there are already 12 machines, 24 - 12 = 12 additional machines must be added."
+Q8_0,logic_01,reasoning,0.731,20.88,294.7,98.65,0.4776,0.3881,0.333,40.4,"Yes, we can logically conclude that some roses fade quickly. Since all roses are flowers and some flowers fade quickly, it follows that some roses, which are a subset of flowers, will also fade quickly.","No, we cannot conclude that some roses fade quickly. The premise only states that some flowers fade quickly, and those flowers may not include roses, committing the fallacy of the undistributed middle."
+Q8_0,code_01,coding,1.845,20.18,298.62,98.29,0.1651,0.1284,0.667,24.71,"Certainly! Below is a clean Python function named `is_palindrome(s: str) -> bool` that checks if a string is a palindrome, ignoring case and non-alphanumeric characters:
+
+```python
+import re
+
+def is_palindrome(s: str) -> bool:
+    """"""
+    Checks if a string is a palindrome, ignoring case and non-alphanumeric characters.
+    
+    Args:
+    s (str): The string to check.
+    
+    Returns:
+    bool: True if the string is a palindrome, False otherwise.
+    """"""
+    # Remove non-alphanumeric characters and convert to lowercase
+    cleaned_s = re.sub(r'[^a-zA-Z0-9]', '', s).lower()
+    
+    # Check if the cleaned string is equal","def is_palindrome(s: str) -> bool:
+    clean = [c.lower() for c in s if c.isalnum()]
+    return clean == clean[::-1]"
+Q8_0,code_02,coding,1.835,19.93,290.24,98.35,0.2774,0.1898,1.0,37.81,"To compute the n-th Fibonacci number using recursion and memoization, you can use a dictionary to store the results of previously computed Fibonacci numbers. This approach avoids redundant calculations and significantly speeds up the computation for large values of n.
+
+Here's how you can implement the `fibonacci_memo` function:
+
+```python
+def fibonacci_memo(n: int, memo: dict = None) -> int:
+    """"""
+    Compute the n-th Fibonacci number using recursion and memoization.
+    
+    Parameters:
+    n (int): The position in the Fibonacci sequence.
+    memo (dict, optional): A dictionary to store previously computed Fibonacci numbers.
+    
+    Returns:
+    int: The n-th Fibonacci number.
+    """"""
+    if memo is None:
+        memo","def fibonacci_memo(n: int, memo=None):
+    if memo is None:
+        memo = {}
+    if n in memo:
+        return memo[n]
+    if n <= 1:
+        return n
+    memo[n] = fibonacci_memo(n-1, memo) + fibonacci_memo(n-2, memo)
+    return memo[n]"
+Q8_0,summ_01,summarization,0.482,19.56,289.96,98.85,0.2692,0.2692,0.0,21.54,"Cloud computing involves pooling computing resources, providing elastic services, and offering various deployment models.","Cloud computing is a model for enabling ubiquitous, on-demand network access to a shared pool of configurable computing resources with rapid elasticity and minimal management effort. It is provisioned across private, public, community, or hybrid deployment models."
+Q8_0,summ_02,summarization,0.885,18.47,289.65,98.77,0.4494,0.4045,1.0,53.71,"Amdahl's Law states that the speedup of a parallel computing system is limited by the time-consuming sequential parts of the program. This implies that as more tasks are added to a parallel system, the speedup will eventually level off due to the inherent sequential nature of the program.","Amdahl's law states that the overall speedup of a program from parallel processing is bounded by the fraction of the algorithm that is strictly sequential. Even with infinite processors, maximum acceleration is fundamentally limited by the unparallelizable portion."
+Q8_0,extract_01,extraction,0.834,27.9,289.29,98.66,0.9286,0.9286,1.0,94.29,"```json
+{
+  ""company"": ""Google"",
+  ""founded"": ""1998"",
+  ""founders"": [""Larry Page"", ""Sergey Brin""],
+  ""headquarters"": ""Mountain View, California""
+}
+```","{
+  ""company"": ""Google"",
+  ""founded"": ""September 1998"",
+  ""founders"": [""Larry Page"", ""Sergey Brin""],
+  ""headquarters"": ""Mountain View, California""
+}"
+Q8_0,instruct_01,instruction_following,1.743,19.59,299.28,97.63,0.2391,0.1522,0.333,21.45,"1. **Parallel Processing**: GPUs are designed to handle massive parallel processing tasks, making them highly efficient for deep learning inference. CPUs, on the other hand, are optimized for sequential processing and are less suited for parallel tasks.
+
+2. **Memory Bandwidth**: GPUs have significantly higher memory bandwidth compared to CPUs. This allows them to transfer large amounts of data quickly, which is crucial for deep learning inference where data transfer is a bottleneck.
+
+3. **Specialized Architecture**: GPUs are specifically designed for parallel computing tasks, including matrix operations, which are fundamental in deep learning. CPUs, while capable of parallel processing, are not as specialized for these tasks and may require additional optimization for deep learning applications.","1. **Core Architecture**: CPUs have few powerful latency-optimized cores, while GPUs have thousands of smaller throughput-optimized arithmetic units.
+2. **Memory Bandwidth**: GPUs use high-bandwidth memory (GDDR/HBM) reaching >900 GB/s, whereas CPUs rely on DDR channels typically capped at <100 GB/s.
+3. **Instruction Execution**: GPUs excel at SIMD/SIMT massive tensor operations, while CPUs excel at branch prediction, complex instruction pipelines, and scalar control flow."
+fp16,qa_01,factual_qa,0.734,88.82,303.84,52.73,0.8462,0.8462,1.0,87.69,"The capital of Australia is Canberra, and it was chosen in 1908.",The capital of Australia is Canberra. It was chosen as the capital in 1908.
+fp16,qa_02,factual_qa,2.759,28.11,291.75,61.5,0.2222,0.1905,1.0,36.19,"In special relativity, the Lorentz factor quantifies the time dilation effect. The Lorentz factor is a mathematical expression that relates the time measured in an accelerating frame of reference to the time measured in a stationary frame of reference. It is given by the formula:
+
+\[
+\gamma = \frac{1}{\sqrt{1 - \frac{v^2}{c^2}}}
+\]
+
+where:
+- \( \gamma \) is the Lorentz factor,
+- \( v \) is the velocity of the moving frame relative to the stationary frame,
+- \( c \) is the speed of light in a vacuum.
+
+The Lorentz factor is a crucial concept in special relativity because it helps to explain the","The Lorentz factor quantifies time dilation, length contraction, and relativistic mass increase for an object moving at relativistic speed. It is denoted by the Greek letter gamma."
+fp16,math_01,reasoning,2.773,26.51,292.58,61.12,0.2636,0.1705,0.75,31.43,"To solve this problem, we need to determine the current capacity of the server cluster and then calculate how many additional machines are required to handle the doubled traffic.
+
+1. **Calculate the current capacity:**
+   - Each machine can process 15 requests per second.
+   - There are 12 machines.
+   - Therefore, the current capacity is \( 12 \times 15 = 180 \) requests per second.
+
+2. **Determine the doubled traffic:**
+   - The incoming traffic doubles from its current capacity.
+   - The doubled traffic is \( 2 \times 180 = 360 \) requests per second.
+
+3. **Calculate the required capacity:**
+   - To handle","Each machine handles 15 req/s. Total current capacity = 12 * 15 = 180 req/s. Doubled traffic = 360 req/s. Total machines needed = 360 / 15 = 24 machines. Since there are already 12 machines, 24 - 12 = 12 additional machines must be added."
+fp16,logic_01,reasoning,0.99,26.08,290.47,60.88,0.4776,0.3881,0.333,40.4,"Yes, we can logically conclude that some roses fade quickly. Since all roses are flowers and some flowers fade quickly, it follows that some roses, which are a subset of flowers, will also fade quickly.","No, we cannot conclude that some roses fade quickly. The premise only states that some flowers fade quickly, and those flowers may not include roses, committing the fallacy of the undistributed middle."
+fp16,code_01,coding,2.791,25.61,293.83,60.7,0.1651,0.1284,0.667,24.71,"Certainly! Below is a clean Python function named `is_palindrome(s: str) -> bool` that checks if a string is a palindrome, ignoring case and non-alphanumeric characters:
+
+```python
+import re
+
+def is_palindrome(s: str) -> bool:
+    """"""
+    Checks if a string is a palindrome, ignoring case and non-alphanumeric characters.
+    
+    Args:
+    s (str): The string to check.
+    
+    Returns:
+    bool: True if the string is a palindrome, False otherwise.
+    """"""
+    # Remove non-alphanumeric characters and convert to lowercase
+    cleaned_s = re.sub(r'[^a-zA-Z0-9]', '', s).lower()
+    
+    # Check if the cleaned string is equal","def is_palindrome(s: str) -> bool:
+    clean = [c.lower() for c in s if c.isalnum()]
+    return clean == clean[::-1]"
+fp16,code_02,coding,2.799,27.02,294.43,60.54,0.2774,0.1898,1.0,37.81,"To compute the n-th Fibonacci number using recursion and memoization, you can use a dictionary to store the results of previously computed Fibonacci numbers. This approach avoids redundant calculations and significantly speeds up the computation for large values of n.
+
+Here's how you can implement the `fibonacci_memo` function:
+
+```python
+def fibonacci_memo(n: int, memo: dict = None) -> int:
+    """"""
+    Compute the n-th Fibonacci number using recursion and memoization.
+    
+    Parameters:
+    n (int): The position in the Fibonacci sequence.
+    memo (dict, optional): A dictionary to store previously computed Fibonacci numbers.
+    
+    Returns:
+    int: The n-th Fibonacci number.
+    """"""
+    if memo is None:
+        memo","def fibonacci_memo(n: int, memo=None):
+    if memo is None:
+        memo = {}
+    if n in memo:
+        return memo[n]
+    if n <= 1:
+        return n
+    memo[n] = fibonacci_memo(n-1, memo) + fibonacci_memo(n-2, memo)
+    return memo[n]"
+fp16,summ_01,summarization,0.602,26.92,295.97,60.9,0.2692,0.2692,0.0,21.54,"Cloud computing involves pooling computing resources, providing elastic services, and offering various deployment models.","Cloud computing is a model for enabling ubiquitous, on-demand network access to a shared pool of configurable computing resources with rapid elasticity and minimal management effort. It is provisioned across private, public, community, or hybrid deployment models."
+fp16,summ_02,summarization,1.18,25.32,293.31,60.37,0.4634,0.3659,1.0,52.2,"Amdahl's Law states that the speedup of a parallel computing system is limited by the time-consuming sequential tasks. This implies that as more tasks are parallelized, the overall speedup will increase, but the improvement will diminish as more tasks are added.","Amdahl's law states that the overall speedup of a program from parallel processing is bounded by the fraction of the algorithm that is strictly sequential. Even with infinite processors, maximum acceleration is fundamentally limited by the unparallelizable portion."
+fp16,extract_01,extraction,1.196,28.48,288.82,60.29,0.9655,0.9655,1.0,97.24,"```json
+{
+  ""company"": ""Google"",
+  ""founded"": ""September 1998"",
+  ""founders"": [""Larry Page"", ""Sergey Brin""],
+  ""headquarters"": ""Mountain View, California""
+}
+```","{
+  ""company"": ""Google"",
+  ""founded"": ""September 1998"",
+  ""founders"": [""Larry Page"", ""Sergey Brin""],
+  ""headquarters"": ""Mountain View, California""
+}"
+fp16,instruct_01,instruction_following,2.616,24.98,290.52,59.98,0.2404,0.153,0.333,21.53,"1. **Parallel Processing**: GPUs are designed to handle massive parallel processing tasks, making them highly efficient for deep learning inference. CPUs, on the other hand, are optimized for sequential processing and are less suited for parallel tasks.
+
+2. **Memory Bandwidth**: GPUs have significantly higher memory bandwidth compared to CPUs. This allows them to transfer large amounts of data quickly, which is crucial for deep learning inference where data transfer is a bottleneck.
+
+3. **Specialized Architecture**: GPUs are specifically designed for parallel computing tasks, including matrix operations, which are fundamental in deep learning. CPUs, while capable of parallel processing, are not as specialized for these tasks and may require additional software to optimize performance.","1. **Core Architecture**: CPUs have few powerful latency-optimized cores, while GPUs have thousands of smaller throughput-optimized arithmetic units.
+2. **Memory Bandwidth**: GPUs use high-bandwidth memory (GDDR/HBM) reaching >900 GB/s, whereas CPUs rely on DDR channels typically capped at <100 GB/s.
+3. **Instruction Execution**: GPUs excel at SIMD/SIMT massive tensor operations, while CPUs excel at branch prediction, complex instruction pipelines, and scalar control flow."
