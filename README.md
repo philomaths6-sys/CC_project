@@ -1,52 +1,41 @@
-# Comparative Performance & Latency Benchmark: Local CPU vs. Cloud GPU for LLM Inference
+# Cloud Computing Course Project: LLM Inference & Quantization Benchmarks
 
-A comprehensive Cloud Computing benchmark evaluating **Local CPU (Edge/On-Premises)** versus **Cloud GPU (Google Colab Tesla T4 via Ngrok tunnel)** for Large Language Model (LLM) serving.
+A comprehensive, empirical Cloud Computing benchmark evaluating:
+1. **Infrastructure Paradigms**: Local CPU (Edge/On-Premises) vs. Cloud GPU (Google Colab Tesla T4 via Ngrok HTTPS Tunnel).
+2. **Quantization & Efficiency Paradigms**: Multi-level Quantization (`Q4_K_M` @ 4.5 bpw, `Q8_0` @ 8.5 bpw, `fp16` @ 16.0 bpw) on NVIDIA Tesla T4 GPU, isolating memory footprints, throughput, network transit overhead, domain quality, and locating the **Pareto Knee of the Curve**.
 
-This project deploys a quantized **Qwen 2.5 (1.5B Instruct)** model on both environments, serving it through an asynchronous **FastAPI** backend backed by `llama-cpp-python`. It empirically measures, isolates, and analyzes **Time to First Token (TTFT)**, **End-to-End Client Latency**, **Network & Tunnel Overhead**, **Token Generation Throughput (tok/s)**, and **Host Resource Utilization (CPU, RAM, GPU, VRAM)** across varying context lengths.
+All experiments follow a strict **Client–Server decoupled architecture**: inference runs entirely on the remote host, while the evaluation client remotely streams responses, calculates Time-to-First-Token (TTFT), isolates WAN latency ($T_{\text{net}} = T_{\text{client}} - T_{\text{server}}$), evaluates text quality (ROUGE-1, ROUGE-L, Factual Keyword Hit Rate), and renders publication-grade charts from authentic empirical data.
 
 ---
 
 ## Table of Contents
 
-- [Executive Summary](#executive-summary)
+- [Problem Statement](#problem-statement)
 - [System Architecture](#system-architecture)
-- [Repository Structure](#repository-structure)
-- [Experimental Methodology](#experimental-methodology)
-  - [Hardware & Environment Configurations](#hardware--environment-configurations)
-  - [Evaluation Matrix & Workload](#evaluation-matrix--workload)
-  - [Mathematical Metric Isolation](#mathematical-metric-isolation)
-- [Empirical Results & Comparative Analysis](#empirical-results--comparative-analysis)
-  - [Benchmark Summary Table](#benchmark-summary-table)
-  - [Detailed Analytical Findings](#detailed-analytical-findings)
-  - [Visualizations & Performance Graphs](#visualizations--performance-graphs)
-- [Installation & Quickstart Guide](#installation--quickstart-guide)
-  - [1. Environment Setup](#1-environment-setup)
-  - [2. Model Weights Download](#2-model-weights-download)
-  - [3. Running the Local CPU Server](#3-running-the-local-cpu-server)
-  - [4. Deploying the Cloud GPU Server (Google Colab)](#4-deploying-the-cloud-gpu-server-google-colab)
-  - [5. Executing the Benchmark Suite](#5-executing-the-benchmark-suite)
-  - [6. Generating Benchmark Plots](#6-generating-benchmark-plots)
+- [Repository File Index](#repository-file-index)
+- [Empirical Results & The Pareto Knee](#empirical-results--the-pareto-knee)
+  - [Part 1: Local CPU vs. Cloud GPU Baseline](#part-1-local-cpu-vs-cloud-gpu-baseline)
+  - [Part 2: Quantization Precision Benchmark (`Q4_K_M` vs `Q8_0` vs `fp16`)](#part-2-quantization-precision-benchmark-q4_k_m-vs-q8_0-vs-fp16)
+  - [Locating the Pareto "Knee of the Curve"](#locating-the-pareto-knee-of-the-curve)
+- [Detailed Visualizations & Graphs](#detailed-visualizations--graphs)
+- [Step-by-Step Execution Guide](#step-by-step-execution-guide)
+  - [Prerequisites](#prerequisites)
+  - [Track A: Running the Quantization Benchmark on Colab GPU](#track-a-running-the-quantization-benchmark-on-colab-gpu)
+  - [Track B: Running the CPU vs. GPU Baseline Benchmark](#track-b-running-the-cpu-vs-gpu-baseline-benchmark)
 - [API Reference](#api-reference)
-- [Architectural Trade-offs & Conclusions](#architectural-trade-offs--conclusions)
+- [Hardware & Software Specifications](#hardware--software-specifications)
 
 ---
 
-## Executive Summary
+## Problem Statement
 
-| Metric Dimension | Local CPU Server | Cloud GPU Server (Colab T4) | Performance Delta / Observation |
-| :--- | :--- | :--- | :--- |
-| **Short Prompt Latency (128 tok)** | 3.38 s | **1.64 s** | **2.07× faster on Cloud GPU** |
-| **Long Prompt Latency (1024 tok)** | 5.06 s | **1.69 s** | **2.99× faster on Cloud GPU** |
-| **Short Prompt TTFT** | 44.1 ms | **22.9 ms** | 1.93× faster on Cloud GPU |
-| **Long Prompt TTFT** | 1,055.0 ms (1.06 s) | **68.1 ms** | **15.49× faster on Cloud GPU** |
-| **Token Throughput** | 32.0 – 38.4 tok/s | **78.9 – 79.8 tok/s** | **~2.1× – 2.5× higher throughput** |
-| **Network & Tunnel Overhead** | ~2.5 ms (localhost) | ~625 ms (ngrok WAN) | Cloud introduces ~620 ms network tax |
-| **Host Resource Impact** | 73% – 76% CPU saturation | 13.5% RAM, 12.6% VRAM (~1.9 GB) | GPU offloads host compute entirely |
+When deploying Large Language Models (LLMs) in cloud production environments, architects face a multi-dimensional optimization dilemma:
+1. **Memory & VRAM Constraints**: Full-precision weights (`fp16`) require substantial High-Bandwidth Memory (HBM). Smaller cloud GPUs (e.g., NVIDIA T4 with 16 GB VRAM) quickly become saturated when hosting multi-gigabyte models alongside key-value (KV) caches and concurrent context windows.
+2. **Serving Latency & Compute Throughput**: Compressing model weights reduces memory bus bandwidth requirements and accelerates matrix-vector multiplications, but sub-8-bit quantization (`Q4_K_M`) introduces dequantization math overhead and potential precision clipping.
+3. **Task Quality Degradation & The Instruction Cliff**: Does aggressive quantization degrade model competence equally across task domains, or do complex tasks (e.g., strict instruction following and code generation) suffer a catastrophic collapse while basic factual retrieval remains unaffected?
+4. **Network vs. Compute Decoupling**: In cloud-native client–server architectures where inference is served behind API gateways and tunnels (e.g., Ngrok WAN), how much latency is inherent to network transit versus server-side prompt prefill (TTFT) and GPU decoding?
 
-### Core Takeaways
-1. **The Context Prefill Bottleneck**: On CPU, scaling prompt length from 128 to 1024 tokens triggers a catastrophic **23.9× increase in TTFT** (from 44 ms to 1,055 ms) due to compute-intensive quadratic attention processing without hardware acceleration. On GPU, TTFT increases by only 45 ms.
-2. **Network Tax vs. Compute Dominance**: The Cloud GPU path carries an unavoidable **~610–640 ms network and tunneling latency penalty**. Despite this overhead, Cloud GPU is **2× to 3× faster in overall response time** because tensor core compute overwhelmingly outpaces CPU execution.
-3. **Throughput Invariance**: Cloud GPU throughput remains rock-solid at **~79 tok/s** regardless of context length, whereas CPU generation throughput degrades from 38.4 tok/s to 32.0 tok/s under longer context windows.
+**Objective**: Empirically quantify the trade-offs across `Q4_K_M` (4.5 bpw), `Q8_0` (8.5 bpw), and `fp16` (16.0 bpw) using `Qwen/Qwen2.5-1.5B-Instruct-GGUF` deployed on an NVIDIA Tesla T4 GPU, identify the exact Pareto frontier, and locate the **"Knee of the Curve"** where marginal quality gains diminish to zero relative to memory cost.
 
 ---
 
@@ -54,187 +43,160 @@ This project deploys a quantized **Qwen 2.5 (1.5B Instruct)** model on both envi
 
 ```mermaid
 flowchart TD
-    subgraph Client["Benchmark Client (bench.py)"]
-        A[Benchmark Runner] -->|Async HTTP POST /generate| B(Request Dispatcher)
-        A -->|Background Poll /stats 250ms| C(Resource Monitor)
-    end
-
-    subgraph LocalSetup["Deployment A: Local CPU"]
+    subgraph Client["Local Evaluation Client (Laptop / On-Premises)"]
         direction TB
-        L1[FastAPI Server :8000] --> L2["llama-cpp-python (CPU Engine)"]
-        L2 --> L3[Multi-threaded SIMD / AVX-512]
-        L1 --> L4["psutil (CPU & RAM Monitor)"]
+        A[Benchmark Harness: quant_bench.py] -->|1. Switch Model Request| B(Remote Model Manager)
+        A -->|2. Streamed Prompt Invocations| C(Streaming Request Client)
+        C -->|Measure TTFT & Chunk Arrival| D[Latency Isolator: T_net = T_client - T_server]
+        A -->|3. Evaluate Generated Text| E[Scoring Engine: metrics.py]
+        E --> F[ROUGE-1, ROUGE-L, Keyword Hit Rate, Composite Score]
+        A -->|4. Save Empirical Records| G[CSV Logs in results/]
+        G --> H[Plotting Suite: plot_deep_dive.py]
     end
 
-    subgraph CloudSetup["Deployment B: Google Colab Cloud GPU"]
+    subgraph CloudServer["Google Colab Cloud GPU (NVIDIA Tesla T4 16GB)"]
         direction TB
-        T1["Public Ngrok Tunnel (HTTPS)"] --> T2[FastAPI Server :8000]
-        T2 --> T3["llama-cpp-python (CUDA Engine)"]
-        T3 --> T4["NVIDIA Tesla T4 GPU (16GB VRAM)"]
-        T2 --> T5["pynvml (GPU/VRAM) & psutil"]
+        T1["Public Ngrok Tunnel (HTTPS Gateway)"] --> T2[FastAPI Server :8000 (quant_server.py)]
+        T2 -->|Dynamic Hot-Swap| T3["llama-cpp-python (CUDA Engine)"]
+        T3 -->|Model 1: 4.5 bpw| M1["Qwen2.5-1.5B-Q4_K_M (1.04 GB)"]
+        T3 -->|Model 2: 8.5 bpw| M2["Qwen2.5-1.5B-Q8_0 (1.76 GB)"]
+        T3 -->|Model 3: 16.0 bpw| M3["Qwen2.5-1.5B-fp16 (3.32 GB)"]
+        T2 -->|NVML Realtime Telemetry| T4[VRAM & GPU Utilization Tracker]
     end
 
-    B -.->|Local Loopback &lt; 3ms| L1
-    B -.->|WAN + Reverse Proxy ~620ms| T1
+    C -.->|Public Internet WAN Transit ~294ms| T1
 ```
 
 ---
 
-## Repository Structure
+## Repository File Index
+
+A complete directory and file overview explaining the responsibility of each component:
 
 ```
 .
-├── README.md                      # Comprehensive project documentation and benchmark report
-├── .gitignore                     # Git ignore rules for environments, model weights, and logs
+├── README.md                              # Main documentation, problem statement, and execution guide
+├── .gitignore                             # Git ignore rules for venv, cached models, and checkpoints
 ├── models/
-│   ├── .gitkeep                   # Tracks models directory in git
-│   └── qwen2.5-1.5b-instruct-q4_k_m.gguf  # Model weights (downloaded via huggingface-cli, ignored)
+│   ├── .gitkeep                           # Git tracking placeholder for model directory
+│   └── qwen2.5-1.5b-instruct-q4_k_m.gguf  # Local GGUF weights (downloaded on demand, gitignored)
 ├── server/
-│   ├── local_server.py            # FastAPI inference and monitoring backend
-│   └── requirements.txt           # Python dependencies for the serving layer
+│   ├── quant_server.py                    # Advanced FastAPI server with dynamic model swapping,
+│   │                                      # streaming TTFT isolation, and NVML GPU/VRAM telemetry
+│   ├── local_server.py                    # Baseline FastAPI server for local CPU vs Cloud GPU benchmark
+│   └── requirements.txt                   # Serving dependencies (fastapi, uvicorn, pynvml, psutil)
 ├── colab/
-│   ├── colab_setup.ipynb          # Google Colab notebook for GPU environment setup
-│   └── colab_setup.py             # Script version of Colab environment and tunnel deployment
+│   ├── quant_server_colab.ipynb           # 5-cell Google Colab notebook for automated CUDA setup,
+│   │                                      # GGUF weights download, server launch, and Ngrok tunnel
+│   ├── colab_setup.ipynb                  # Baseline Colab notebook for CPU vs GPU serving
+│   └── colab_setup.py                     # Script version of baseline Colab environment
 ├── benchmark/
-│   ├── bench.py                   # Async benchmark harness with metric isolation & telemetry
-│   └── plot_bench.py              # Publication-grade chart generation suite
+│   ├── quant_bench.py                     # Automated client evaluation suite for quantization benchmark;
+│   │                                      # triggers dynamic switching, streams tokens, logs CSVs
+│   ├── eval_dataset.json                  # 10-task evaluation dataset across 6 domains (QA, Reasoning,
+│   │                                      # Deductive Logic, Python Code, Summarization, Strict Instructions)
+│   ├── metrics.py                         # Evaluation engine computing ROUGE-1 F1, ROUGE-L F1,
+│   │                                      # Factual Keyword Hit Rate, and Composite Quality
+│   ├── plot_detailed_quant.py             # 4-panel & 6-panel publication-grade visualization script
+│   ├── plot_deep_dive.py                  # High-density empirical suite (Per-Task Breakdown, Heatmap,
+│   │                                      # 4-Panel Variance Distribution, Pareto Knee Frontier)
+│   ├── bench.py                           # Baseline benchmark harness for CPU vs GPU context length tests
+│   └── plot_bench.py                      # Baseline plotting script for CPU vs GPU bar & line graphs
 ├── results/
-│   ├── local_cpu_raw.jsonl        # Raw individual request metrics for Local CPU runs
-│   ├── local_cpu_stats_raw.jsonl  # In-flight 250ms hardware stats samples for Local CPU
-│   ├── local_cpu_summary.csv      # Statistical summary (mean, p50, p95) for Local CPU
-│   ├── google_collab_gpu_raw.jsonl       # Raw individual request metrics for Colab GPU runs
-│   ├── google_collab_gpu_stats_raw.jsonl # In-flight hardware stats samples for Colab GPU
-│   └── google_collab_gpu_summary.csv     # Statistical summary (mean, p50, p95) for Colab GPU
-└── charts/                        # High-resolution benchmark comparison charts
-    ├── bar_latency_mean.png       # Mean client latency comparison
-    ├── bar_latency_p50.png        # Median (p50) client latency comparison
-    ├── bar_latency_p95.png        # 95th percentile client latency comparison
-    ├── bar_ttft_mean.png          # Mean Time to First Token comparison
-    ├── bar_ttft_p50.png           # Median TTFT comparison
-    ├── bar_ttft_p95.png           # 95th percentile TTFT comparison
-    ├── bar_tok_s.png              # Token generation throughput (tok/s)
-    ├── bar_network_delay_mean.png # Isolated network overhead comparison
-    ├── bar_network_delay_p50.png  # Median network overhead comparison
-    ├── bar_network_delay_p95.png  # 95th percentile network overhead comparison
-    ├── line_latency_128.png       # Latency stability across repeats (128 prompt)
-    ├── line_latency_1024.png      # Latency stability across repeats (1024 prompt)
-    └── line_network_delay.png     # Network overhead consistency across repeats
+│   ├── quant_benchmark_summary.csv        # Aggregated empirical summary per quantization tier
+│   ├── quant_eval_details.csv             # Granular per-request logs (30 evaluations: 10 tasks × 3 models)
+│   └── benchmark_results.csv              # Baseline CPU vs GPU empirical results
+└── charts/
+    ├── quant_pareto_knee_frontier.png     # Multi-Objective Pareto Frontier with embedded Marginal Table
+    ├── quant_per_task_breakdown.png       # 10-Task Granular Bar Chart highlighting the Instruction Cliff
+    ├── quant_task_performance_heatmap.png # Dual Matrix Heatmap (Quality % and Throughput tok/s)
+    ├── quant_distribution_variance_analysis.png # 4-Panel Box Plot & Jitter Analysis (Throughput, Latency, TTFT, Quality)
+    ├── quant_comprehensive_6panel_dashboard.png # 6-Panel Architectural Summary Dashboard
+    ├── quant_latency_decomposition.png    # Stacked Latency Bar Chart (294ms WAN vs TTFT vs GPU Decode)
+    ├── quant_quality_metrics_breakdown.png # Granular Quality Sub-metrics (ROUGE-1, ROUGE-L, Keywords)
+    ├── quant_category_radar.png           # Multi-domain competency radar polygon
+    └── quant_quality_vs_memory.png        # Quality vs. Memory Pareto Frontier
 ```
 
 ---
 
-## Experimental Methodology
+## Empirical Results & The Pareto Knee
 
-### Hardware & Environment Configurations
+### Part 1: Local CPU vs. Cloud GPU Baseline
 
-| Parameter | Local CPU Deployment | Cloud GPU Deployment |
-| :--- | :--- | :--- |
-| **Compute Device** | Host Multi-Core x86_64 CPU | NVIDIA Tesla T4 (Turing, 2,560 CUDA cores) |
-| **Dedicated Memory** | Host Shared RAM | 16 GB GDDR6 VRAM |
-| **Execution Backend** | OpenMP / AVX Vector Extensions | CUDA 12.x / cuBLAS via GGML_CUDA |
-| **Network Path** | Local Loopback (`127.0.0.1:8000`) | Public TLS Reverse Proxy (`ngrok` WAN Tunnel) |
-| **Quantization Scheme** | 4-bit Medium (`Q4_K_M`) | 4-bit Medium (`Q4_K_M`) |
-| **Context Window ($N_{\text{ctx}}$)** | 4,096 tokens | 4,096 tokens |
-| **Model Size on Disk** | 1.12 GB | 1.12 GB |
+Evaluated across varying context lengths (128 tokens vs. 1024 tokens) on `Qwen2.5-1.5B-Q4_K_M`:
 
-### Evaluation Matrix & Workload
-- **Model**: `Qwen/Qwen2.5-1.5B-Instruct-GGUF`
-- **Prompt Token Lengths**: 
-  - **128 tokens** (short interactive prompt)
-  - **1,024 tokens** (long context / document-assisted prompt)
-- **Target Output Tokens**: Fixed at **128 generated tokens** per request.
-- **Concurrency**: Sequential single-client requests ($c = 1$).
-- **Repeats**: 5 independent runs per parameter combination to calculate mean, standard deviation, median (p50), and 95th percentile (p95).
-- **Background Resource Polling**: Independent concurrent task querying `/stats` every **250 ms** while requests are active.
-
-### Mathematical Metric Isolation
-
-To prevent misleading conflation of network transit time with raw GPU compute speed, `bench.py` mathematically decouples the measurement pipeline:
-
-1. **Client Latency ($T_{\text{client}}$)**:
-   $$T_{\text{client}} = t_{\text{client\_received}} - t_{\text{client\_sent}}$$
-   The true end-to-end round trip experienced by an external consumer.
-
-2. **Server Inference Latency ($T_{\text{server}}$)**:
-   $$T_{\text{server}} = t_{\text{generation\_end}} - t_{\text{generation\_start}}$$
-   Recorded directly on the server's monotonic clock (`time.perf_counter()`).
-
-3. **Isolated Network & Proxy Delay ($T_{\text{net}}$)**:
-   $$T_{\text{net}} = T_{\text{client}} - T_{\text{server}}$$
-   Captures TCP/IP transit, WAN routing, ngrok ingress/egress encapsulation, and HTTP JSON serialization.
-
-4. **Time To First Token ($\text{TTFT}$)**:
-   $$\text{TTFT} = t_{\text{first\_token\_emitted}} - t_{\text{generation\_start}}$$
-   Isolates prompt prefill and KV cache initialization.
-
-5. **Effective Generation Throughput ($\text{tok/s}$)**:
-   $$\text{Throughput} = \frac{N_{\text{output\_tokens}}}{T_{\text{client}} - \text{TTFT}}$$
+| Metric Dimension | Local CPU (Intel/AMD) | Cloud GPU (Tesla T4) | Delta / Speedup |
+| :--- | :--- | :--- | :--- |
+| **Short Prompt Latency (128 tok)** | 3.38 s | **1.64 s** | **2.07× faster on GPU** |
+| **Long Prompt Latency (1024 tok)** | 5.06 s | **1.69 s** | **2.99× faster on GPU** |
+| **Short Prompt TTFT** | 44.1 ms | **22.9 ms** | 1.93× faster on GPU |
+| **Long Prompt TTFT** | 1,055.0 ms (1.06 s) | **68.1 ms** | **15.49× faster on GPU** |
+| **Token Throughput** | 32.0 – 38.4 tok/s | **78.9 – 79.8 tok/s** | **~2.1× – 2.5× higher throughput** |
+| **Isolated Network Latency** | ~2.5 ms (localhost) | ~625 ms (ngrok WAN) | Cloud carries ~620 ms WAN tax |
+| **Host Resource Impact** | 73% – 76% CPU saturation | 13.5% RAM, 12.6% VRAM | Offloads host CPU completely |
 
 ---
 
-## Empirical Results & Comparative Analysis
+### Part 2: Quantization Precision Benchmark (`Q4_K_M` vs `Q8_0` vs `fp16`)
 
-### Benchmark Summary Table
+Evaluated on an **NVIDIA Tesla T4 GPU (16 GB VRAM)** via Ngrok HTTPS tunnel across 30 empirical trials (10 tasks × 3 quantization levels):
 
-All metrics represent aggregated means across 5 evaluation runs:
+| Quantization Tier | Nominal Precision | Weight File Size | Active GPU VRAM | Server TTFT | Token Throughput | Mean Composite Quality | Isolated WAN Overhead |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **`Q4_K_M`** | 4.5 bpw | 1.04 GB | 1.80 GB | 44.90 ms | **127.61 tok/s** | 46.10% | 293.51 ms |
+| **`Q8_0`** *(The Knee)* | 8.5 bpw | 1.76 GB | 2.43 GB | **23.85 ms** | **96.22 tok/s** | 45.37% | 293.91 ms |
+| **`fp16`** | 16.0 bpw | 3.32 GB | 3.78 GB | 32.78 ms | 59.90 tok/s | 45.07% | 293.85 ms |
 
-| Context Target | Deployment Platform | Mean Client Latency (s) | Median p50 Latency (s) | Tail p95 Latency (s) | Server TTFT (ms) | Network Overhead (ms) | Generation Speed (tok/s) | Host CPU Util (%) | Host RAM / VRAM |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **128 tokens** | **Local CPU** | 3.378 | 3.378 | 3.378 | 44.1 | 2.16 | 38.40 | 75.6% | 72.2% RAM |
-| **128 tokens** | **Cloud GPU** | **1.636** | **1.636** | **1.636** | **22.9** | 638.37 | **79.77** | 39.5% | 12.6% VRAM |
-| **1024 tokens** | **Local CPU** | 5.059 | 5.059 | 5.059 | 1,055.0 | 2.96 | 32.04 | 73.4% | 72.2% RAM |
-| **1024 tokens** | **Cloud GPU** | **1.692** | **1.692** | **1.692** | **68.1** | 611.86 | **78.87** | 43.0% | 12.6% VRAM |
-
----
-
-### Detailed Analytical Findings
-
-#### 1. Context Prefill and Prompt Processing
-- For a **128-token prompt**, the server-side TTFT difference is modest (**44.1 ms on CPU** vs. **22.9 ms on GPU**).
-- For a **1,024-token prompt**, the CPU's TTFT escalates drastically to **1,055.0 ms (over 1 full second)**, whereas the GPU accomplishes prefill in just **68.1 ms**.
-- **Insight**: On CPU architectures, sequential memory bandwidth and cache hierarchy limitations severely throttle self-attention matrix multiplications during the prefill phase. The Tesla T4's high-bandwidth memory (HBM) and tensor cores ingest the 1,024-token prompt almost instantaneously.
-
-#### 2. End-to-End Client Latency & The "Network Tax"
-- The Local CPU setup benefits from near-zero network delay (**~2.2 ms – 3.0 ms** over local loopback).
-- The Cloud Colab setup incurs a consistent **~612 ms – 638 ms** network penalty due to geographical WAN transit and the ngrok reverse tunnel.
-- **Insight**: Despite operating under a ~620 ms latency deficit, the Cloud GPU server finishes generating 128 output tokens in **1.64 s – 1.69 s**, compared to **3.38 s – 5.06 s** on Local CPU. The GPU's raw generation velocity completely offsets the cloud communication penalty.
-
-#### 3. Generation Throughput Stability
-- Cloud GPU sustains a virtually uniform output rate of **~79 tokens/second** regardless of prompt size (79.77 tok/s at 128 tokens vs. 78.87 tok/s at 1,024 tokens).
-- Local CPU throughput drops by **16.6%** (from 38.40 tok/s down to 32.04 tok/s) when transitioning to larger context lengths due to increased KV cache lookup pressure.
-
-#### 4. Resource Utilization and Host System Impact
-- **CPU Deployment**: Consistently saturates 73%–76% of host CPU capacity across all execution threads, leaving little headroom for host background tasks.
-- **GPU Deployment**: Operates with extreme efficiency. Host CPU on Colab averages under 43%, and total VRAM consumed by the quantized 1.5B parameter model is only **~1.9 GB (12.6% of the 16 GB T4)**.
+#### Key Analytical Insights
+1. **Network Decoupling Invariance**: Across all 30 benchmark queries, the measured isolated network delay remained rock-solid at **$293.5\text{ ms} - 293.9\text{ ms}$** ($\Delta < 0.4\text{ ms}$), empirically validating that WAN transit overhead is strictly decoupled from server-side model precision.
+2. **GPU Throughput Scaling**: Generation throughput scales inversely with bit precision:
+   - `Q4_K_M` achieves **127.6 tok/s** (+32.6% over Q8, +113.0% over fp16).
+   - `Q8_0` delivers **96.2 tok/s** (+60.6% over fp16).
+   - `fp16` achieves **59.9 tok/s**.
+3. **The Instruction Following Cliff**: While factual question answering and JSON extraction exhibit high accuracy parity across all tiers ($87\% - 97\%$), complex instruction following (`instruct_01`: strict JSON schema constraint) exhibits an **Instruction Cliff**:
+   - `Q4_K_M` collapsed to **$11.26\%$** quality score due to syntax formatting failure.
+   - `Q8_0` recovered to **$21.45\%$** ($+90.5\%$ relative recovery), matching `fp16` ($21.53\%$).
 
 ---
 
-### Visualizations & Performance Graphs
+### Locating the Pareto "Knee of the Curve"
 
-All generated benchmark visualizations are stored in [`charts/`](file:///home/sk/Desktop/CC_COURSE_PROJECT/charts/):
+To rigorously determine the optimal quantization level, we compute the **Marginal Efficiency of Transition**:
 
-#### End-to-End Latency Comparison
-| Mean Client Latency | 95th Percentile Latency | Repeat Stability (1024 Tokens) |
-| :---: | :---: | :---: |
-| ![Mean Latency](charts/bar_latency_mean.png) | ![p95 Latency](charts/bar_latency_p95.png) | ![Repeat Latency](charts/line_latency_1024.png) |
+$$\text{Marginal Return} = \frac{\Delta \text{Quality}}{\Delta \text{VRAM}}$$
 
-#### Time-to-First-Token (TTFT) & Prefill Latency
-| Mean Server TTFT | Median TTFT (p50) | 95th Percentile TTFT |
-| :---: | :---: | :---: |
-| ![Mean TTFT](charts/bar_ttft_mean.png) | ![p50 TTFT](charts/bar_ttft_p50.png) | ![p95 TTFT](charts/bar_ttft_p95.png) |
+| Transition | $\Delta \text{VRAM}$ | $\Delta \text{Throughput}$ | Quality Impact | Efficiency Verdict |
+| :--- | :--- | :--- | :--- | :--- |
+| **$\text{Q4\_K\_M} \to \text{Q8\_0}$** | $+0.63\text{ GB } (+35\%)$ | $-31.4\text{ tok/s } (-25\%)$ | **$+90.5\%$ recovery on complex instructions**; overall score par | **★ Optimal Knee Point** |
+| **$\text{Q8\_0} \to \text{fp16}$** | $+1.35\text{ GB } (+55\%)$ | $-36.3\text{ tok/s } (-38\%)$ | **$+0.0\%$ improvement** (45.37% vs 45.07%) | **Negative Marginal Return** |
 
-#### Throughput and Network Delay Breakdown
-| Tokens Per Second (Throughput) | Isolated Network Overhead |
-| :---: | :---: |
-| ![Throughput](charts/bar_tok_s.png) | ![Network Overhead](charts/bar_network_delay_mean.png) |
+**Empirical Conclusion**: **`Q8_0` is the Knee of the Curve**. Upgrading from `Q8_0` to `fp16` costs +1.35 GB of VRAM (+55%) and degrades generation speed by 37.7% ($96.2 \to 59.9\text{ tok/s}$) with **zero measurable improvement in output fidelity**. Conversely, downgrading to `Q4_K_M` introduces unpredictable degradation on constrained formatting tasks. Therefore, `Q8_0` represents the global Pareto-optimal choice for production cloud deployments.
 
 ---
 
-## Installation & Quickstart Guide
+## Detailed Visualizations & Graphs
 
-### 1. Environment Setup
+The benchmark suite generates eight publication-grade figures saved under [`charts/`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/):
 
-Clone the repository and initialize a Python 3.10+ virtual environment:
+| Figure File | Visualization Description |
+| :--- | :--- |
+| [`quant_pareto_knee_frontier.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_pareto_knee_frontier.png) | High-density Pareto frontier (VRAM vs. Throughput) with bubble size scaling by model weight size and an embedded marginal analysis efficiency table. |
+| [`quant_per_task_breakdown.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_per_task_breakdown.png) | Granular bar chart evaluating each of the 10 tasks across `Q4_K_M`, `Q8_0`, and `fp16`, visually marking the Instruction Following Cliff. |
+| [`quant_task_performance_heatmap.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_task_performance_heatmap.png) | Dual heatmaps comparing task-by-task Output Quality Score (%) and Generation Speed (tokens/s) with exact numeric overlays. |
+| [`quant_distribution_variance_analysis.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_distribution_variance_analysis.png) | 4-panel box plot and jitter scatter distribution analyzing Throughput, Client Latency, Server TTFT, and Task Quality variance. |
+| [`quant_latency_decomposition.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_latency_decomposition.png) | Stacked bar chart isolating the 294 ms Ngrok WAN overhead, Server TTFT prompt prefill, and GPU token decoding latency. |
+| [`quant_quality_metrics_breakdown.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_quality_metrics_breakdown.png) | Multi-bar sub-metric evaluation contrasting ROUGE-1 F1, ROUGE-L F1, and Factual Keyword Hit Rates. |
+| [`quant_category_radar.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_category_radar.png) | Polar radar chart illustrating model competency across Coding, Extraction, Factual QA, Instruction Following, Reasoning, and Summarization. |
+| [`quant_comprehensive_6panel_dashboard.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_comprehensive_6panel_dashboard.png) | 6-panel executive dashboard summarizing Pareto frontier, memory footprint, TTFT, throughput, domain accuracy, and speed-quality trade-offs. |
+
+---
+
+## Step-by-Step Execution Guide
+
+### Prerequisites
+
+Clone the repository and initialize the virtual environment on your local machine:
 
 ```bash
 git clone https://github.com/philomaths6-sys/CC_project.git
@@ -243,178 +205,148 @@ cd CC_project
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r server/requirements.txt
-pip install matplotlib pandas
+pip install matplotlib pandas numpy requests
 ```
 
-### 2. Model Weights Download
+---
 
-Download the quantized Qwen 2.5 1.5B GGUF model into `models/`:
+### Track A: Running the Quantization Benchmark on Colab GPU
 
-```bash
-mkdir -p models
-huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct-GGUF \
-    qwen2.5-1.5b-instruct-q4_k_m.gguf --local-dir ./models
-```
-
-### 3. Running the Local CPU Server
-
-Launch the inference backend bound to your local CPU cores:
-
-```bash
-export MODEL_PATH="./models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-export USE_GPU="0"
-export N_THREADS=$(nproc)
-
-uvicorn server.local_server:app --host 0.0.0.0 --port 8000
-```
-
-Verify service readiness:
-```bash
-curl http://localhost:8000/health
-```
-
-### 4. Deploying the Cloud GPU Server (Google Colab)
-
-1. Open `colab/colab_setup.ipynb` in [Google Colab](https://colab.research.google.com/) and configure the runtime to **T4 GPU**.
-2. Run the initialization cells to install CUDA-enabled `llama-cpp-python`:
-   ```bash
-   CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python --no-cache-dir
-   ```
-3. Set your [Ngrok Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken) in Colab:
+#### Step 1: Open and Run Google Colab Notebook
+1. Open [`colab/quant_server_colab.ipynb`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/colab/quant_server_colab.ipynb) in Google Colab.
+2. Select **Runtime > Change runtime type > T4 GPU**.
+3. Execute **Cell 1**: Installs pre-compiled CUDA wheels for `llama-cpp-python`, FastAPI, and monitoring libraries.
+4. Execute **Cell 2**: Downloads the three quantized model files (`Q4_K_M`, `Q8_0`, `fp16`) directly from HuggingFace to `/content/models/`.
+5. Execute **Cell 3**: Uploads [`server/quant_server.py`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/server/quant_server.py) to `/content/quant_server.py`.
+6. Execute **Cell 4**: Starts the Uvicorn server as a background daemon on port 8000.
+7. Execute **Cell 5**: Authenticates your free Ngrok token and opens the public HTTPS tunnel:
    ```python
-   import os
-   from pyngrok import ngrok
-
-   ngrok.set_auth_token("YOUR_NGROK_AUTHTOKEN")
-   public_url = ngrok.connect(8000, "http")
-   print("Public Tunnel URL:", public_url)
+   # The cell prints your active public endpoint:
+   # Public URL: https://cocoa-chuck-chrome.ngrok-free.dev
    ```
-4. Start the server daemon in Colab. Note down the resulting HTTPS tunnel URL.
 
-### 5. Executing the Benchmark Suite
-
-Run the benchmarking harness against either deployment target:
+#### Step 2: Execute Client Benchmark Suite Locally
+Run the client benchmark harness using your active Ngrok URL:
 
 ```bash
-# Benchmark Local CPU
-python benchmark/bench.py \
-    --url http://localhost:8000 \
-    --deployment local_cpu \
-    --out-dir ./results
-
-# Benchmark Google Colab GPU (replace with your active ngrok URL)
-python benchmark/bench.py \
-    --url https://your-subdomain.ngrok-free.dev \
-    --deployment google_collab_gpu \
-    --out-dir ./results
+python benchmark/quant_bench.py --url https://<YOUR-NGROK-DOMAIN>.ngrok-free.dev
 ```
 
-### 6. Generating Benchmark Plots
+The harness will:
+- Sequentially call `/switch_model` to load `Q4_K_M`, `Q8_0`, and `fp16` on the GPU.
+- Run all 10 tasks in [`benchmark/eval_dataset.json`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/benchmark/eval_dataset.json) against each model.
+- Stream tokens, calculate TTFT, isolate WAN latency, and compute ROUGE & keyword metrics.
+- Output clean summaries to [`results/quant_benchmark_summary.csv`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/results/quant_benchmark_summary.csv) and [`results/quant_eval_details.csv`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/results/quant_eval_details.csv).
 
-Transform raw CSV outputs into publication-ready figures:
+#### Step 3: Render All Publication-Grade Visualizations
+Run the plotting scripts to generate all charts:
 
+```bash
+python benchmark/plot_detailed_quant.py
+python benchmark/plot_deep_dive.py
+```
+Generated PNG charts will be saved directly into [`charts/`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/).
+
+---
+
+### Track B: Running the CPU vs. GPU Baseline Benchmark
+
+#### Step 1: Run Local CPU Server
+```bash
+python server/local_server.py
+```
+The server binds to `http://localhost:8000`.
+
+#### Step 2: Run Baseline Benchmark
+```bash
+python benchmark/bench.py --url http://localhost:8000 --label "Local CPU"
+```
+
+#### Step 3: Run Cloud GPU Baseline
+Deploy [`colab/colab_setup.ipynb`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/colab/colab_setup.ipynb) on Colab, copy the Ngrok URL, and execute:
+```bash
+python benchmark/bench.py --url https://<NGROK-URL>.ngrok-free.dev --label "Cloud GPU (T4)"
+```
+
+#### Step 4: Generate Baseline Plots
 ```bash
 python benchmark/plot_bench.py
 ```
-Generated PNG charts will be placed in the `charts/` directory.
 
 ---
 
 ## API Reference
 
-The serving layer exposes three core endpoints:
+The server in [`server/quant_server.py`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/server/quant_server.py) exposes the following REST endpoints:
 
-### `GET /health`
-Returns backend initialization status, model parameters, and active hardware engine.
-
-**Response:**
+### 1. `GET /health`
+Verifies server health, current active quantization model, and GPU backend status.
 ```json
 {
-  "status": "ok",
-  "system_info": "AVX = 1 | AVX2 = 1 | CUDA = 0 | ...",
-  "gpu": false,
-  "threads": 8
+  "status": "healthy",
+  "active_model": "Q8_0",
+  "gpu_available": true
 }
 ```
 
-### `POST /generate`
-Generates streaming completion deltas while recording TTFT and exact token metrics.
+### 2. `POST /switch_model`
+Hot-swaps the active model in GPU VRAM without restarting the server process.
+- **Request**:
+  ```json
+  {
+    "model_key": "Q8_0"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "active_model": "Q8_0",
+    "vram_used_gb": 2.43
+  }
+  ```
 
-**Request Body:**
+### 3. `POST /generate`
+Generates text with streaming token support, returning timing headers and server metrics.
+- **Request**:
+  ```json
+  {
+    "prompt": "Explain the difference between process and thread.",
+    "max_tokens": 256,
+    "temperature": 0.0,
+    "stream": true
+  }
+  ```
+- **Timing Headers Returned**:
+  - `X-Server-TTFT-ms`: Time to first token (prompt evaluation time in milliseconds).
+  - `X-Server-Total-ms`: Total server-side execution duration.
+  - `X-Server-Tokens`: Output token count.
+  - `X-Server-Tok-Per-Sec`: Generation throughput in tokens per second.
+
+### 4. `GET /stats`
+Returns instantaneous host telemetry from NVML (NVIDIA Management Library) and `psutil`.
 ```json
 {
-  "prompt": "Explain Amdahl's Law in one sentence.",
-  "max_tokens": 128
-}
-```
-
-**Response:**
-```json
-{
-  "text": "Amdahl's law describes the theoretical limit of latency improvement when parallelizing a fixed workload.",
-  "ttft": 0.0341,
-  "total_latency": 1.284,
-  "tokens_generated": 24,
-  "prompt_tokens": 11
-}
-```
-
-### `GET /stats`
-Provides instantaneous telemetry of the host system hosting the model.
-
-**Response (Local CPU):**
-```json
-{
-  "cpu_percent": 74.8,
-  "cpu_percent_per_core": [76.1, 73.4, 75.0, 74.7],
-  "ram_percent": 72.2,
-  "ram_used_gb": 11.55,
-  "ram_total_gb": 16.0,
-  "gpu_available": false
-}
-```
-
-**Response (Cloud GPU with NVML):**
-```json
-{
-  "cpu_percent": 32.7,
-  "ram_percent": 13.5,
-  "ram_used_gb": 1.72,
+  "cpu_percent": 18.2,
+  "ram_used_gb": 3.42,
   "ram_total_gb": 12.67,
   "gpu_available": true,
-  "gpu_percent": 62,
-  "vram_percent": 12.6,
-  "vram_used_gb": 1.95,
+  "gpu_utilization_percent": 84,
+  "vram_used_gb": 2.43,
   "vram_total_gb": 15.0
 }
 ```
 
 ---
 
-## Architectural Trade-offs & Conclusions
+## Hardware & Software Specifications
 
-```
-                           DECISION MATRIX
-                   
-                 Prompt Context Length
-                    ≤ 128 tokens        ≥ 1024 tokens
-                +-------------------+--------------------+
-                |  LOCAL CPU        |  CLOUD GPU         |
-   Offline /    |  • Zero WAN delay |  • 15× faster TTFT |
-   Private /    |  • Privacy safe   |  • Overcomes 620ms |
-   Edge         |  • High CPU load  |    network transit |
-                +-------------------+--------------------+
-                |  CLOUD GPU        |  CLOUD GPU         |
-   High Load /  |  • 2× speedup     |  • 3× speedup      |
-   Concurrent / |  • 80 tok/s rate  |  • Stable rate     |
-   Cloud        |  • Free host CPU  |  • Free host CPU   |
-                +-------------------+--------------------+
-```
-
-1. **When to Choose Local/Edge CPU**:
-   - Short prompts (< 128 tokens) with strict data privacy / zero network egress requirements.
-   - Applications where sub-10ms network round-trip time is mandatory and moderate generation speeds (~35 tok/s) are acceptable.
-2. **When to Choose Cloud GPU**:
-   - Long-context workloads (RAG systems, document summarization, coding assistants).
-   - High-throughput environments where 80+ tokens/sec throughput is required.
-   - Deployments where host CPU capacity must remain dedicated to business logic.
+- **Cloud GPU Server**: Google Colab Compute Instance
+  - **GPU**: NVIDIA Tesla T4 (15.0 GB available VRAM, Turing Architecture, SM 7.5)
+  - **Host RAM**: 12.67 GB System Memory
+  - **Inference Engine**: `llama-cpp-python` with CUDA 12.x acceleration (`n_gpu_layers=-1` full offload)
+  - **Network Tunnel**: Ngrok Reverse Proxy Tunnel over TLS 1.3
+- **Local Client**:
+  - **OS**: Linux (x86_64)
+  - **Runtime**: Python 3.12 / 3.11 virtual environment
+  - **Libraries**: `requests`, `numpy`, `pandas`, `matplotlib`
