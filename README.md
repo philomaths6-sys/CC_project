@@ -4,7 +4,9 @@ A comprehensive, empirical Cloud Computing benchmark evaluating:
 1. **Infrastructure Paradigms**: Local CPU (Edge/On-Premises) vs. Cloud GPU (Google Colab Tesla T4 via Ngrok HTTPS Tunnel).
 2. **Quantization & Efficiency Paradigms**: Multi-level Quantization (`Q4_K_M` @ 4.5 bpw, `Q8_0` @ 8.5 bpw, `fp16` @ 16.0 bpw) on NVIDIA Tesla T4 GPU, isolating memory footprints, throughput, network transit overhead, domain quality, and locating the **Pareto Knee of the Curve**.
 
-All experiments follow a strict **Client–Server decoupled architecture**: inference runs entirely on the remote host, while the evaluation client remotely streams responses, calculates Time-to-First-Token (TTFT), isolates WAN latency ($T_{\text{net}} = T_{\text{client}} - T_{\text{server}}$), evaluates text quality (ROUGE-1, ROUGE-L, Factual Keyword Hit Rate), and renders publication-grade charts from authentic empirical data.
+All experiments follow a strict **Client–Server decoupled architecture**:
+- **Server Role (Google Colab)**: Pure inference host. Runs model execution and returns only the generated completion text and raw server-side timing telemetry (`ttft`, `total_latency`, `tokens_generated`, `prompt_tokens`).
+- **Client Role (Local Laptop)**: Evaluation harness. Measures end-to-end wall-clock latency, mathematically isolates WAN network delay ($T_{\text{net}} = T_{\text{client}} - T_{\text{server}}$), calculates GPU token throughput ($\text{tokens} / T_{\text{decode}}$), evaluates text quality (ROUGE-1, ROUGE-L, Factual Keyword Hit Rate), and renders publication-grade charts from authentic empirical data.
 
 ---
 
@@ -17,7 +19,7 @@ All experiments follow a strict **Client–Server decoupled architecture**: infe
   - [Part 1: Local CPU vs. Cloud GPU Baseline](#part-1-local-cpu-vs-cloud-gpu-baseline)
   - [Part 2: Quantization Precision Benchmark (`Q4_K_M` vs `Q8_0` vs `fp16`)](#part-2-quantization-precision-benchmark-q4_k_m-vs-q8_0-vs-fp16)
   - [Locating the Pareto "Knee of the Curve"](#locating-the-pareto-knee-of-the-curve)
-- [Detailed Visualizations & Graphs](#detailed-visualizations--graphs)
+- [Visualizations & Performance Charts](#visualizations--performance-charts)
 - [Step-by-Step Execution Guide](#step-by-step-execution-guide)
   - [Prerequisites](#prerequisites)
   - [Track A: Running the Quantization Benchmark on Colab GPU](#track-a-running-the-quantization-benchmark-on-colab-gpu)
@@ -47,7 +49,7 @@ flowchart TD
         direction TB
         A[Benchmark Harness: quant_bench.py] -->|1. Switch Model Request| B(Remote Model Manager)
         A -->|2. Streamed Prompt Invocations| C(Streaming Request Client)
-        C -->|Measure TTFT & Chunk Arrival| D[Latency Isolator: T_net = T_client - T_server]
+        C -->|Measure TTFT & Response Arrival| D[Latency Isolator: T_net = T_client - T_server]
         A -->|3. Evaluate Generated Text| E[Scoring Engine: metrics.py]
         E --> F[ROUGE-1, ROUGE-L, Keyword Hit Rate, Composite Score]
         A -->|4. Save Empirical Records| G[CSV Logs in results/]
@@ -81,10 +83,10 @@ A complete directory and file overview explaining the responsibility of each com
 │   ├── .gitkeep                           # Git tracking placeholder for model directory
 │   └── qwen2.5-1.5b-instruct-q4_k_m.gguf  # Local GGUF weights (downloaded on demand, gitignored)
 ├── server/
-│   ├── quant_server.py                    # Advanced FastAPI server with dynamic model swapping,
-│   │                                      # streaming TTFT isolation, and NVML GPU/VRAM telemetry
+│   ├── quant_server.py                    # FastAPI inference server with dynamic model swapping,
+│   │                                      # streaming TTFT measurement, and NVML GPU/VRAM telemetry
 │   ├── local_server.py                    # Baseline FastAPI server for local CPU vs Cloud GPU benchmark
-│   └── requirements.txt                   # Serving dependencies (fastapi, uvicorn, pynvml, psutil)
+│   └── requirements.txt                   # Serving dependencies (fastapi, uvicorn, pynvml, psutil, aiohttp)
 ├── colab/
 │   ├── quant_server_colab.ipynb           # 5-cell Google Colab notebook for automated CUDA setup,
 │   │                                      # GGUF weights download, server launch, and Ngrok tunnel
@@ -149,7 +151,7 @@ Evaluated on an **NVIDIA Tesla T4 GPU (16 GB VRAM)** via Ngrok HTTPS tunnel acro
 | **`fp16`** | 16.0 bpw | 3.32 GB | 3.78 GB | 32.78 ms | 59.90 tok/s | 45.07% | 293.85 ms |
 
 #### Key Analytical Insights
-1. **Network Decoupling Invariance**: Across all 30 benchmark queries, the measured isolated network delay remained rock-solid at **$293.5\text{ ms} - 293.9\text{ ms}$** ($\Delta < 0.4\text{ ms}$), empirically validating that WAN transit overhead is strictly decoupled from server-side model precision.
+1. **Network Decoupling Invariance**: Across all 30 benchmark queries, the measured isolated network delay remained rock-solid at **$293.5\text{ ms} - 293.9\text{ ms}$** ($\Delta < 0.4\text{ ms}$, $\sigma < 5.7\text{ ms}$), empirically validating that WAN transit overhead is strictly decoupled from server-side model precision.
 2. **GPU Throughput Scaling**: Generation throughput scales inversely with bit precision:
    - `Q4_K_M` achieves **127.6 tok/s** (+32.6% over Q8, +113.0% over fp16).
    - `Q8_0` delivers **96.2 tok/s** (+60.6% over fp16).
@@ -175,20 +177,27 @@ $$\text{Marginal Return} = \frac{\Delta \text{Quality}}{\Delta \text{VRAM}}$$
 
 ---
 
-## Detailed Visualizations & Graphs
+## Visualizations & Performance Charts
 
-The benchmark suite generates eight publication-grade figures saved under [`charts/`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/):
+### 1. Multi-Objective Pareto Frontier & Marginal Return
+![Pareto Frontier](charts/quant_pareto_knee_frontier.png)
 
-| Figure File | Visualization Description |
-| :--- | :--- |
-| [`quant_pareto_knee_frontier.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_pareto_knee_frontier.png) | High-density Pareto frontier (VRAM vs. Throughput) with bubble size scaling by model weight size and an embedded marginal analysis efficiency table. |
-| [`quant_per_task_breakdown.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_per_task_breakdown.png) | Granular bar chart evaluating each of the 10 tasks across `Q4_K_M`, `Q8_0`, and `fp16`, visually marking the Instruction Following Cliff. |
-| [`quant_task_performance_heatmap.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_task_performance_heatmap.png) | Dual heatmaps comparing task-by-task Output Quality Score (%) and Generation Speed (tokens/s) with exact numeric overlays. |
-| [`quant_distribution_variance_analysis.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_distribution_variance_analysis.png) | 4-panel box plot and jitter scatter distribution analyzing Throughput, Client Latency, Server TTFT, and Task Quality variance. |
-| [`quant_latency_decomposition.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_latency_decomposition.png) | Stacked bar chart isolating the 294 ms Ngrok WAN overhead, Server TTFT prompt prefill, and GPU token decoding latency. |
-| [`quant_quality_metrics_breakdown.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_quality_metrics_breakdown.png) | Multi-bar sub-metric evaluation contrasting ROUGE-1 F1, ROUGE-L F1, and Factual Keyword Hit Rates. |
-| [`quant_category_radar.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_category_radar.png) | Polar radar chart illustrating model competency across Coding, Extraction, Factual QA, Instruction Following, Reasoning, and Summarization. |
-| [`quant_comprehensive_6panel_dashboard.png`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/quant_comprehensive_6panel_dashboard.png) | 6-panel executive dashboard summarizing Pareto frontier, memory footprint, TTFT, throughput, domain accuracy, and speed-quality trade-offs. |
+### 2. Task-by-Task Granular Evaluation (The Instruction Cliff)
+![Per-Task Breakdown](charts/quant_per_task_breakdown.png)
+
+### 3. Dual Granular Performance Heatmap Matrix (Quality vs. Speed)
+![Task Performance Heatmap](charts/quant_task_performance_heatmap.png)
+
+### 4. Empirical Variance & Distribution Analysis (4-Panel Box Plot)
+![Distribution Variance Analysis](charts/quant_distribution_variance_analysis.png)
+
+### 5. Latency Decomposition (294ms WAN vs. Prefill vs. Decoding)
+![Latency Decomposition](charts/quant_latency_decomposition.png)
+
+### 6. Domain Competency Radar & 6-Panel Architectural Dashboard
+| Domain Competency Radar | Comprehensive 6-Panel Suite |
+| :---: | :---: |
+| ![Radar Chart](charts/quant_category_radar.png) | ![6-Panel Dashboard](charts/quant_comprehensive_6panel_dashboard.png) |
 
 ---
 
@@ -213,11 +222,11 @@ pip install matplotlib pandas numpy requests
 ### Track A: Running the Quantization Benchmark on Colab GPU
 
 #### Step 1: Open and Run Google Colab Notebook
-1. Open [`colab/quant_server_colab.ipynb`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/colab/quant_server_colab.ipynb) in Google Colab.
+1. Open [`colab/quant_server_colab.ipynb`](colab/quant_server_colab.ipynb) in Google Colab.
 2. Select **Runtime > Change runtime type > T4 GPU**.
 3. Execute **Cell 1**: Installs pre-compiled CUDA wheels for `llama-cpp-python`, FastAPI, and monitoring libraries.
 4. Execute **Cell 2**: Downloads the three quantized model files (`Q4_K_M`, `Q8_0`, `fp16`) directly from HuggingFace to `/content/models/`.
-5. Execute **Cell 3**: Uploads [`server/quant_server.py`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/server/quant_server.py) to `/content/quant_server.py`.
+5. Execute **Cell 3**: Uploads [`server/quant_server.py`](server/quant_server.py) to `/content/quant_server.py`.
 6. Execute **Cell 4**: Starts the Uvicorn server as a background daemon on port 8000.
 7. Execute **Cell 5**: Authenticates your free Ngrok token and opens the public HTTPS tunnel:
    ```python
@@ -234,9 +243,9 @@ python benchmark/quant_bench.py --url https://<YOUR-NGROK-DOMAIN>.ngrok-free.dev
 
 The harness will:
 - Sequentially call `/switch_model` to load `Q4_K_M`, `Q8_0`, and `fp16` on the GPU.
-- Run all 10 tasks in [`benchmark/eval_dataset.json`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/benchmark/eval_dataset.json) against each model.
+- Run all 10 tasks in [`benchmark/eval_dataset.json`](benchmark/eval_dataset.json) against each model.
 - Stream tokens, calculate TTFT, isolate WAN latency, and compute ROUGE & keyword metrics.
-- Output clean summaries to [`results/quant_benchmark_summary.csv`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/results/quant_benchmark_summary.csv) and [`results/quant_eval_details.csv`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/results/quant_eval_details.csv).
+- Output clean summaries to [`results/quant_benchmark_summary.csv`](results/quant_benchmark_summary.csv) and [`results/quant_eval_details.csv`](results/quant_eval_details.csv).
 
 #### Step 3: Render All Publication-Grade Visualizations
 Run the plotting scripts to generate all charts:
@@ -245,7 +254,7 @@ Run the plotting scripts to generate all charts:
 python benchmark/plot_detailed_quant.py
 python benchmark/plot_deep_dive.py
 ```
-Generated PNG charts will be saved directly into [`charts/`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/charts/).
+Generated PNG charts will be saved directly into [`charts/`](charts/).
 
 ---
 
@@ -263,7 +272,7 @@ python benchmark/bench.py --url http://localhost:8000 --label "Local CPU"
 ```
 
 #### Step 3: Run Cloud GPU Baseline
-Deploy [`colab/colab_setup.ipynb`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/colab/colab_setup.ipynb) on Colab, copy the Ngrok URL, and execute:
+Deploy [`colab/colab_setup.ipynb`](colab/colab_setup.ipynb) on Colab, copy the Ngrok URL, and execute:
 ```bash
 python benchmark/bench.py --url https://<NGROK-URL>.ngrok-free.dev --label "Cloud GPU (T4)"
 ```
@@ -277,61 +286,83 @@ python benchmark/plot_bench.py
 
 ## API Reference
 
-The server in [`server/quant_server.py`](file:///home/sk/Desktop/sk_Desktop/CC_COURSE_PROJECT/server/quant_server.py) exposes the following REST endpoints:
+The server in [`server/quant_server.py`](server/quant_server.py) exposes the following REST endpoints:
 
 ### 1. `GET /health`
 Verifies server health, current active quantization model, and GPU backend status.
+- **Response**:
 ```json
 {
-  "status": "healthy",
-  "active_model": "Q8_0",
-  "gpu_available": true
+  "status": "ok",
+  "current_quant_level": "Q8_0",
+  "current_model_path": "/content/models/qwen2.5-1.5b-instruct-q8_0.gguf",
+  "disk_size_gb": 1.76,
+  "gpu": true,
+  "threads": 4,
+  "system_info": "AVX = 1 | AVX_VNNI = 0 | AVX2 = 1 | CUDA = 1 ..."
 }
 ```
 
 ### 2. `POST /switch_model`
 Hot-swaps the active model in GPU VRAM without restarting the server process.
 - **Request**:
-  ```json
-  {
-    "model_key": "Q8_0"
-  }
-  ```
+```json
+{
+  "quant_level": "Q8_0"
+}
+```
 - **Response**:
-  ```json
-  {
-    "status": "success",
-    "active_model": "Q8_0",
-    "vram_used_gb": 2.43
-  }
-  ```
+```json
+{
+  "status": "switched",
+  "quant_level": "Q8_0",
+  "model_path": "/content/models/qwen2.5-1.5b-instruct-q8_0.gguf",
+  "disk_size_gb": 1.76,
+  "use_gpu": true
+}
+```
 
 ### 3. `POST /generate`
-Generates text with streaming token support, returning timing headers and server metrics.
+Executes token generation on the GPU. The server returns the generated completion text along with raw server-side timing and token counters. All client metrics (network transit delay, client wall-clock latency, throughput, ROUGE scores) are computed by the client evaluation harness.
 - **Request**:
-  ```json
-  {
-    "prompt": "Explain the difference between process and thread.",
-    "max_tokens": 256,
-    "temperature": 0.0,
-    "stream": true
-  }
-  ```
-- **Timing Headers Returned**:
-  - `X-Server-TTFT-ms`: Time to first token (prompt evaluation time in milliseconds).
-  - `X-Server-Total-ms`: Total server-side execution duration.
-  - `X-Server-Tokens`: Output token count.
-  - `X-Server-Tok-Per-Sec`: Generation throughput in tokens per second.
+```json
+{
+  "prompt": "What is the capital of Australia and when was it chosen?",
+  "max_tokens": 150,
+  "temperature": 0.0
+}
+```
+- **Response**:
+```json
+{
+  "text": "The capital of Australia is Canberra. It was chosen as the capital in 1908.",
+  "ttft": 0.02385,
+  "total_latency": 0.428,
+  "tokens_generated": 18,
+  "prompt_tokens": 24,
+  "quant_level": "Q8_0"
+}
+```
+- **Response Fields Explained**:
+  - `text` *(string)*: Full decoded text generated by the model.
+  - `ttft` *(float)*: Server-side Time to First Token (prompt evaluation duration in seconds, e.g. `0.02385 s` = `23.85 ms`).
+  - `total_latency` *(float)*: Server-side total execution duration in seconds (prefill + decoding).
+  - `tokens_generated` *(int)*: Exact count of output tokens produced.
+  - `prompt_tokens` *(int)*: Token count of input prompt.
+  - `quant_level` *(string)*: Model quantization tier used for generation.
 
 ### 4. `GET /stats`
 Returns instantaneous host telemetry from NVML (NVIDIA Management Library) and `psutil`.
+- **Response**:
 ```json
 {
   "cpu_percent": 18.2,
+  "ram_percent": 27.0,
   "ram_used_gb": 3.42,
   "ram_total_gb": 12.67,
   "gpu_available": true,
-  "gpu_utilization_percent": 84,
+  "gpu_percent": 84,
+  "vram_percent": 16.2,
   "vram_used_gb": 2.43,
   "vram_total_gb": 15.0
 }
@@ -349,4 +380,4 @@ Returns instantaneous host telemetry from NVML (NVIDIA Management Library) and `
 - **Local Client**:
   - **OS**: Linux (x86_64)
   - **Runtime**: Python 3.12 / 3.11 virtual environment
-  - **Libraries**: `requests`, `numpy`, `pandas`, `matplotlib`
+  - **Libraries**: `requests`, `aiohttp`, `numpy`, `pandas`, `matplotlib`
