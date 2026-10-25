@@ -1,0 +1,72 @@
+[
+  {
+    "id": "qa_01",
+    "category": "factual_qa",
+    "prompt": "Answer directly and concisely: What is the capital of Australia, and what year was it chosen as the capital?",
+    "reference": "The capital of Australia is Canberra. It was chosen as the capital in 1908.",
+    "required_keywords": ["Canberra", "1908"]
+  },
+  {
+    "id": "qa_02",
+    "category": "factual_qa",
+    "prompt": "What physical quantity does the Lorentz factor quantify in special relativity, and what is its symbol?",
+    "reference": "The Lorentz factor quantifies time dilation, length contraction, and relativistic mass increase for an object moving at relativistic speed. It is denoted by the Greek letter gamma.",
+    "required_keywords": ["Lorentz", "gamma", "time dilation"]
+  },
+  {
+    "id": "math_01",
+    "category": "reasoning",
+    "prompt": "Solve step-by-step: A server cluster has 12 machines, each capable of processing 15 requests per second. If incoming traffic doubles from its current capacity, how many additional machines must be added to maintain service?",
+    "reference": "Each machine handles 15 req/s. Total current capacity = 12 * 15 = 180 req/s. Doubled traffic = 360 req/s. Total machines needed = 360 / 15 = 24 machines. Since there are already 12 machines, 24 - 12 = 12 additional machines must be added.",
+    "required_keywords": ["180", "360", "24", "12"]
+  },
+  {
+    "id": "logic_01",
+    "category": "reasoning",
+    "prompt": "All roses are flowers. Some flowers fade quickly. Can we logically conclude that some roses fade quickly? Answer with either 'Yes' or 'No' and explain why in two sentences.",
+    "reference": "No, we cannot conclude that some roses fade quickly. The premise only states that some flowers fade quickly, and those flowers may not include roses, committing the fallacy of the undistributed middle.",
+    "required_keywords": ["No", "cannot", "roses"]
+  },
+  {
+    "id": "code_01",
+    "category": "coding",
+    "prompt": "Write a clean Python function named `is_palindrome(s: str) -> bool` that checks if a string is a palindrome ignoring case and non-alphanumeric characters.",
+    "reference": "def is_palindrome(s: str) -> bool:\n    clean = [c.lower() for c in s if c.isalnum()]\n    return clean == clean[::-1]",
+    "required_keywords": ["def is_palindrome", "isalnum", "lower"]
+  },
+  {
+    "id": "code_02",
+    "category": "coding",
+    "prompt": "Write a Python function `fibonacci_memo(n: int, memo: dict = None) -> int` to compute the n-th Fibonacci number using recursion and memoization.",
+    "reference": "def fibonacci_memo(n: int, memo=None):\n    if memo is None:\n        memo = {}\n    if n in memo:\n        return memo[n]\n    if n <= 1:\n        return n\n    memo[n] = fibonacci_memo(n-1, memo) + fibonacci_memo(n-2, memo)\n    return memo[n]",
+    "required_keywords": ["fibonacci_memo", "memo", "recursion"]
+  },
+  {
+    "id": "summ_01",
+    "category": "summarization",
+    "prompt": "Summarize the NIST definition of cloud computing in two concise sentences focusing on resource pooling, elasticity, and deployment models.",
+    "reference": "Cloud computing is a model for enabling ubiquitous, on-demand network access to a shared pool of configurable computing resources with rapid elasticity and minimal management effort. It is provisioned across private, public, community, or hybrid deployment models.",
+    "required_keywords": ["on-demand", "shared pool", "elasticity"]
+  },
+  {
+    "id": "summ_02",
+    "category": "summarization",
+    "prompt": "Summarize Amdahl's Law and its implication for parallel computing scalability in two sentences.",
+    "reference": "Amdahl's law states that the overall speedup of a program from parallel processing is bounded by the fraction of the algorithm that is strictly sequential. Even with infinite processors, maximum acceleration is fundamentally limited by the unparallelizable portion.",
+    "required_keywords": ["Amdahl", "speedup", "sequential", "limited"]
+  },
+  {
+    "id": "extract_01",
+    "category": "extraction",
+    "prompt": "Extract the key entities into JSON with keys 'company', 'founded', 'founders', and 'headquarters': 'Google was founded in September 1998 by Larry Page and Sergey Brin while they were Ph.D. students at Stanford University, headquartered in Mountain View, California.'",
+    "reference": "{\n  \"company\": \"Google\",\n  \"founded\": \"September 1998\",\n  \"founders\": [\"Larry Page\", \"Sergey Brin\"],\n  \"headquarters\": \"Mountain View, California\"\n}",
+    "required_keywords": ["Google", "1998", "Larry Page", "Sergey Brin", "Mountain View"]
+  },
+  {
+    "id": "instruct_01",
+    "category": "instruction_following",
+    "prompt": "List exactly 3 key architectural differences between CPU and GPU hardware for deep learning inference. Format as an ordered markdown list.",
+    "reference": "1. **Core Architecture**: CPUs have few powerful latency-optimized cores, while GPUs have thousands of smaller throughput-optimized arithmetic units.\n2. **Memory Bandwidth**: GPUs use high-bandwidth memory (GDDR/HBM) reaching >900 GB/s, whereas CPUs rely on DDR channels typically capped at <100 GB/s.\n3. **Instruction Execution**: GPUs excel at SIMD/SIMT massive tensor operations, while CPUs excel at branch prediction, complex instruction pipelines, and scalar control flow.",
+    "required_keywords": ["cores", "bandwidth", "SIMD"]
+  }
+]
